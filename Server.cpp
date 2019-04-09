@@ -14,7 +14,7 @@ using  std::cout;
 
 void Server::start() {
 
-    //preparing to launch
+//preparing to launch
     addrinfo hints,*results;
     int status;
     //make sure struct hints is empty

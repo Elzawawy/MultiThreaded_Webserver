@@ -13,7 +13,7 @@
 #include <cstring>
 class Server {
 
-     struct addrinfo hints;
+
 
 public:
     void start();
