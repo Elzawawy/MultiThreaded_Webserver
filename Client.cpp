@@ -1,7 +1,7 @@
 //
 // Created by omar_swidan on 24/03/19.
 //
-
+#include<iterator>
 #include <netdb.h>
 #include <cstring>
 #include <cstdio>
@@ -13,6 +13,9 @@
 #include <sys/socket.h>
 #include <iostream>
 #include <unistd.h>
+#include <sstream>
+
+
 #include <fstream>
 #include "Client.h"
 
@@ -92,6 +95,7 @@ int Client::start(string input){
 
 }
 
+
 string *Client::make_message(string request_type,string filename,string hostname) {
 
     string *message=new string();
@@ -118,3 +122,22 @@ string *Client::make_message(string request_type,string filename,string hostname
     }
     return message;
 }
+
+vector<string>* Client:: parse_string(string input)
+{
+
+
+    istringstream iss(input);
+    vector<string> *results = new vector<string>;
+
+    copy(istream_iterator<string>(iss),
+    istream_iterator<string>(),
+    back_inserter(*results));
+    cout << results->at(1);
+    return results;
+
+}
+
+
+
+
