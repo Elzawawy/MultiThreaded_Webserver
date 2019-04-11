@@ -1,7 +1,7 @@
 //
 // Created by omar_swidan on 24/03/19.
 //
-
+#include<iterator>
 #include <netdb.h>
 #include <cstring>
 #include <cstdio>
@@ -13,10 +13,18 @@
 #include <sys/socket.h>
 #include <iostream>
 #include <unistd.h>
+#include <sstream>
 #include "Client.h"
 
 
 int Client::start(){
+    string input;
+    cin>>input;
+
+    vector<string>* parsing;
+    parsing= parse_string(input);
+
+
     int status;
 
     char* host= (char *) "www.google.com";
@@ -82,3 +90,22 @@ int Client::start(){
     return 0;
 
 }
+
+vector<string>* Client:: parse_string(string input)
+{
+
+
+    istringstream iss(input);
+    vector<string> *results = new vector<string>;
+
+    copy(istream_iterator<string>(iss),
+    istream_iterator<string>(),
+    back_inserter(*results));
+    cout << results->at(1);
+    return results;
+
+}
+
+
+
+
