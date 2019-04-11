@@ -13,10 +13,15 @@
 #include <sys/socket.h>
 #include <iostream>
 #include <unistd.h>
+#include <fstream>
 #include "Client.h"
 
 
-int Client::start(){
+int Client::start(string input){
+
+    vector<string>* tokens=parse_string(input);
+    string *message=make_message(tokens->at(0),tokens->at(1),tokens->at(2));
+
     int status;
 
     char* host= (char *) "www.google.com";
@@ -26,6 +31,8 @@ int Client::start(){
     hints.ai_family = AF_INET;//ipv4
     hints.ai_socktype = SOCK_STREAM;//TCP
 
+
+
     //status = getaddrinfo(host, "3490", &hints, &servinfo);//get ready to connect
     char ipstr[INET6_ADDRSTRLEN];
 
@@ -34,6 +41,8 @@ int Client::start(){
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(status));
         return 2;
     }
+
+
 
    //Printing the contents of the linked list
     printf("IP addresses for %s:\n\n", host);
@@ -81,4 +90,31 @@ int Client::start(){
 
     return 0;
 
+}
+
+string *Client::make_message(string request_type,string filename,string hostname) {
+
+    string *message=new string();
+    message->append(request_type+" "+filename+" "+"HTTP/1.0"+"\n");
+    message->append("Host:"+hostname+"\n");
+    message->append("\n");
+    if(request_type=="POST"){
+        streampos size;
+        char * memblock;
+
+        ifstream post_file(filename,ios::binary);
+        if (post_file.is_open())
+        {
+            size = post_file.tellg();
+            memblock = new char [size];
+            post_file.seekg (0, ios::beg);
+            post_file.read (memblock, size);
+            post_file.close();
+
+            cout << "the entire file content is in memory";
+
+            delete[] memblock;
+        }
+    }
+    return message;
 }

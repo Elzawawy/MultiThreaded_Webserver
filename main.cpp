@@ -3,7 +3,7 @@
 #include "Client.h"
 
 int main() {
-    Client c;
+    Server c;
     c.start();
     return 0;
 }
