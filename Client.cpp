@@ -148,7 +148,6 @@ vector<string>* Client:: parse_string(string input)
 
     istringstream iss(input);
     vector<string> *results = new vector<string>;
-
     copy(istream_iterator<string>(iss),
     istream_iterator<string>(),
     back_inserter(*results));

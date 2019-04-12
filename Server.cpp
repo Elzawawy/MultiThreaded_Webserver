@@ -9,14 +9,51 @@
 #include "Server.h"
 #include <arpa/inet.h>
 #include <netinet/in.h>
-using  std::cout;
+#include <unistd.h>
+#include <thread>
+#include <sstream>
+
+#define MAXDATASIZE 1000 // max number of bytes we can get at once
+#define MY_PORT "80"
+#define BACK_LOG 10
+#pragma clang diagnostic push
+#pragma clang diagnostic pop
+#pragma clang diagnostic ignored "-Wmissing-noreturn"
+using namespace std;
+string getResponse(char* request);
+
+void clientHandler(struct sockaddr_storage* their_addr,int client_socket)
+{
+    pthread_detach(pthread_self()); /* terminates on return */
+//    char string[INET_ADDRSTRLEN];
+//    socklen_t size = sizeof string;
+//    inet_ntop
+//    inet_ntop(their_addr->ss_family, &(((struct sockaddr_in*)((struct sockaddr *)&their_addr)))->sin_addr),string,size);
+//    printf("server: got connection from %s\n", string);
+    cout<<"Connected to a client !"<<endl;
+    /* request */
+    char buffer[MAXDATASIZE + 1];
+    bzero(buffer, sizeof(buffer));
+    int bytes_read = static_cast<int>(recv(client_socket, buffer, sizeof(buffer), 0));
+    if(bytes_read < 0)
+    {
+        perror("recv");
+        exit(1);
+    }
+
+    string response = getResponse(buffer);
+
+}
 
 void Server::start() {
 
     //Step1: Preparing to Launch using getaddrinfo().
-    struct addrinfo hints,*results;
+    struct addrinfo hints,*results, *temp;
     struct sockaddr_storage their_addr;
     int status;
+    int sock_fd, new_sockfd;
+    int numBytes;
+    char buf[MAXDATASIZE];
     //make sure struct hints is empty
     memset(&hints,0,sizeof hints);
     //set your needed parameters of Server.
@@ -26,49 +63,54 @@ void Server::start() {
     //Does all kinds of good stuff for us, including DNS and service name lookups, and fills out the structs we need.
     //Params: nullptr is for IP address for local host, 80 is port number ,hints is our required params.
     //results points to a linked list of struct addrinfo.
-    status = getaddrinfo(nullptr,"80",&hints,&results);
-    if(status != 0 )            //status is nonzero in case of error.
-        cout<<gai_strerror(status);
-    struct addrinfo *p;
-    char ipstr[INET6_ADDRSTRLEN];
-    for(p = results;p != NULL; p = p->ai_next) {
-        void *addr;
-        char *ipver;
-        // get the pointer to the address itself,
-        // different fields in IPv4 and IPv6:
-        if (p->ai_family == AF_INET) { // IPv4
-            struct sockaddr_in *ipv4 = (struct sockaddr_in *)p->ai_addr;
-            addr = &(ipv4->sin_addr);
-            ipver = "IPv4";
-        } else { // IPv6
-            struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *)p->ai_addr;
-            addr = &(ipv6->sin6_addr);
-            ipver = "IPv6";
-        }
-        // convert the IP to a string and print it:
-        inet_ntop(p->ai_family, addr, ipstr, sizeof ipstr);
-        printf(" %s: %s\n", ipver, ipstr);
+    if ((status = getaddrinfo(nullptr, MY_PORT, &hints, &results)) != 0) {
+        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(status));
+        exit(1);
     }
-    //Reminder to use freeaddrinfo(results); in the end of the work.
+    // loop through all the results and bind to the first we can
+    for(temp = results; temp != nullptr; temp = temp->ai_next) {
+        if ((sock_fd = socket(temp->ai_family, temp->ai_socktype, temp->ai_protocol)) == -1) {
+            perror("socket");
+            continue;
+        }
+        if (bind(sock_fd, temp->ai_addr, temp->ai_addrlen) == -1) {
+            close(sock_fd);
+            perror("bind");
+            continue;
+        }
+        break; // if we get here, we must have connected successfully
+    }
+    // looped off the end of the list with no successful bind
+    if (temp == nullptr) {
+        fprintf(stderr, "failed to bind socket\n");
+        exit(2);
+    }
+    freeaddrinfo(results); // all done with this structure
 
-
-
-    //creating the socket
-    // simply returns to you a socket descriptor that you can use in later system calls, or -1 on error.
-    int sockRes=socket(results->ai_family,results->ai_socktype,results->ai_protocol);
-    if(sockRes<0)
-        cout<<"error";
-    // bind it to the port we passed in to getaddrinfo():
-    int bindRes = bind(sockRes, results->ai_addr, results->ai_addrlen);
-    if(bindRes < 0)
-        cout<<"error";
-    //cout<<bindRes;
-    int lisRes = listen(sockRes,5);
-    if(lisRes < 0)
-        cout<<"error";
-    // now accept an incoming connection:
-
-    socklen_t addr_size = sizeof their_addr;
-    int new_fd = accept(sockRes, (struct sockaddr *)&their_addr, &(addr_size));
+    //This is what differentiates the servers from the clients
+    if (listen(sock_fd, BACK_LOG) == -1) {
+        perror("listen");
+        exit(1);
+    }
+    cout<<"Hi there ! I am Listening !"<<endl;
+    while(true) { //Main loop
+        socklen_t sin_size = sizeof their_addr;
+        new_sockfd = accept(sock_fd, (struct sockaddr *)&their_addr, &sin_size);
+        if(new_sockfd == -1)
+        {
+            perror("accept");
+            continue;
+        }
+        thread th(clientHandler,&their_addr,new_sockfd);
+    }
 
 }
+
+string getResponse(char* request)
+{
+
+
+}
+
+
+
