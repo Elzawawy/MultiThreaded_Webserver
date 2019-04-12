@@ -4,13 +4,9 @@
 #include<iterator>
 #include <netdb.h>
 #include <cstring>
-#include <cstdio>
-#include <string>
 
 #include <arpa/inet.h>
 
-#include <sys/types.h>
-#include <sys/socket.h>
 #include <iostream>
 #include <unistd.h>
 #include <sstream>
@@ -25,15 +21,15 @@ int Client::start(string input){
     vector<string>* tokens=parse_string(input);
 
     string *message=make_message(tokens->at(0),tokens->at(1),tokens->at(2));
-
+    string message_type=(tokens->at(0));
     char buff[MAXDATASIZE];
 
     int status;
-//    char *host =new char[tokens->at(2).length()+1];
-//    strcpy(host,tokens->at(2));
-//
+//    const char *host =(tokens->at(2)).c_str();
+
+
     char *host= (char *) "www.google.com";
-    //char* host= (char *) "www.google.com";
+
 
     struct addrinfo hints,*p,*res;
 
@@ -89,8 +85,8 @@ int Client::start(string input){
     len = (int) message->length();
     bytes_sent = (int) send(socket_descriptor, message, (size_t) len, 0);
 
-    // receive message
 
+    // receive message
     int numbytes;
     if ((numbytes = (int) recv(socket_descriptor, buff, MAXDATASIZE - 1, 0)) == -1) {
         perror("recv");
@@ -100,6 +96,16 @@ int Client::start(string input){
 
     string s{buff};
     cout<<buff;
+    string *message_body = nullptr;
+
+   if(get_status_code(string{buff})==200) {
+       if (message_type == "GET")
+           message_body = (get_data(string{buff}));
+       else
+           *message_body = "message posted";
+       write_to_file(*(message_body),"get_file");
+   } else cout<<"request error"<<endl;
+
 
     close(socket_descriptor);
     freeaddrinfo(res); // free the linked list
@@ -156,11 +162,31 @@ vector<string>* Client:: parse_string(string input)
 
 }
 
-void Client::get_data(string message) {
-    for (auto i=message.begin(); i !=message.end() ; ++i) {
+string* Client::get_data(string message) {
+    string* data=new string();
+    for (auto i=message.begin(),j=0; i !=message.end() ; ++i,++j) {
+        if(*i=='\r'){
+            if(*(i+3)=='\n'){
+                //message body found
+                *data=message.substr((unsigned long) (j + 3), message.length());
+                return data;
 
+            }else
+                *i+=3;//increment the iterator to the next possible '\r'
+
+        }
     }
+    return nullptr;
 
+}
+
+void Client::write_to_file(string message_body,string filename) {
+    ofstream output_file(filename,ios::out|ios::binary);
+    output_file<<message_body;
+}
+
+int Client::get_status_code(string response) {
+    return stoi((parse_string(response)->at(1)));
 }
 
 
