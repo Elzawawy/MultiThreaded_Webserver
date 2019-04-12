@@ -164,7 +164,8 @@ vector<string>* Client:: parse_string(string input)
 
 string* Client::get_data(string message) {
     string* data=new string();
-    for (auto i=message.begin(),j=0; i !=message.end() ; ++i,++j) {
+    int j=0;
+    for (auto i=message.begin(); i !=message.end() ; ++i,++j) {
         if(*i=='\r'){
             if(*(i+3)=='\n'){
                 //message body found
@@ -180,7 +181,7 @@ string* Client::get_data(string message) {
 
 }
 
-void Client::write_to_file(string message_body,string filename) {
+void Client::write_to_file(const string &message_body,const string &filename) {
     ofstream output_file(filename,ios::out|ios::binary);
     output_file<<message_body;
 }
