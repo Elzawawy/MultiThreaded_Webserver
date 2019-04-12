@@ -164,7 +164,8 @@ vector<string>* Client:: parse_string(string input)
 
 string* Client::get_data(string message) {
     string* data=new string();
-    for (auto i=message.begin(),j=0; i !=message.end() ; ++i,++j) {
+    int j =0;
+    for (auto i=message.begin(); i !=message.end() ; ++i,++j) {
         if(*i=='\r'){
             if(*(i+3)=='\n'){
                 //message body found
