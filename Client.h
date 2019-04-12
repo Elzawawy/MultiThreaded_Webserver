@@ -15,7 +15,7 @@ private:
     vector<string>* parse_string(string input);
     string* make_message(string request_type,string filename,string hostname);
     string* get_data(string message);
-    void write_to_file(string message_body,string filename);
+    void write_to_file(const string &message_body,const string &filename);
     int get_status_code(string response);
 
 };
