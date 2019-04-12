@@ -14,8 +14,8 @@
 
 #include <fstream>
 #include "Client.h"
-#define MAXDATASIZE 1000
-
+#define MAXDATASIZE 100000
+#define STD_INPUT_SIZE 4
 int Client::start(string input){
 
     vector<string>* tokens=parse_string(input);
@@ -25,10 +25,10 @@ int Client::start(string input){
     char buff[MAXDATASIZE];
 
     int status;
-//    const char *host =(tokens->at(2)).c_str();
+    const char *host =(tokens->at(2)).c_str();
+    string port_number=(tokens->size())== STD_INPUT_SIZE?(tokens->at(3)):"80";
 
-
-    char *host= (char *) "www.google.com";
+//    char *host= (char *) "www.google.com";
 
 
     struct addrinfo hints,*p,*res;
@@ -67,6 +67,7 @@ int Client::start(string input){
 
         inet_ntop(p->ai_family, addr, ipstr, sizeof ipstr);
         printf(" %s: %s\n", ipver, ipstr);
+
     }
 
     //getting socket descriptor for upcoming system calls
@@ -83,26 +84,28 @@ int Client::start(string input){
     int len, bytes_sent;
 
     len = (int) message->length();
-    bytes_sent = (int) send(socket_descriptor, message, (size_t) len, 0);
+    bytes_sent = (int) send(socket_descriptor, message->c_str(), (size_t) len, 0);
 
-
+    cout<<bytes_sent<<endl;
     // receive message
     int numbytes;
     if ((numbytes = (int) recv(socket_descriptor, buff, MAXDATASIZE - 1, 0)) == -1) {
         perror("recv");
         exit(1);
     }
+
+    cout<<numbytes<<endl;
     buff[numbytes] = '\0';
 
     string s{buff};
-    cout<<buff;
-    string *message_body = nullptr;
+    cout<<buff<<endl;
+    auto message_body = new string;
 
    if(get_status_code(string{buff})==200) {
        if (message_type == "GET")
            message_body = (get_data(string{buff}));
        else
-           *message_body = "message posted";
+           *message_body = string{"message posted"};
        write_to_file(*(message_body),"get_file");
    } else cout<<"request error"<<endl;
 
@@ -139,7 +142,7 @@ string *Client::make_message(string request_type,string filename,string hostname
 
             message->append(memblock);
 
-            cout<<sizeof(memblock)<<" "<<size<<endl;
+
             delete[] memblock;
 
 
@@ -187,6 +190,8 @@ void Client::write_to_file(const string &message_body,const string &filename) {
 }
 
 int Client::get_status_code(string response) {
+    if(response.size()<2)
+        return 0;
     return stoi((parse_string(response)->at(1)));
 }
 

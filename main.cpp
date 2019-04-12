@@ -4,6 +4,6 @@
 #include "Client.h"
 int main() {
     Client c;
-    c.start("POST ../Coursera_FinicalAid.txt hostname 80");
+    c.start("POST ../Coursera_FinicalAid.txt 192.168.43.153 80");
     return 0;
 }

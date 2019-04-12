@@ -175,12 +175,12 @@ string* getResponse(string request)
     string response;
     auto * ptrToresponse = new string;
     vector<string>* requestTokens = parse_string(request);
-    string requestMethod = requestTokens->at(0);
+    string &requestMethod = requestTokens->at(0);
     if(requestMethod == "GET")
     {
-        string fileName = requestTokens->at(1);
+        string &fileName = requestTokens->at(1);
         string* fileString = readFileIfExists(fileName);
-        if(fileString.empty())
+        if(fileString->empty())
         {
             response = "HTTP/1.0 404 Not Found";
         }
