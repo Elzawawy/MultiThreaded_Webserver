@@ -16,7 +16,7 @@
 #include <iterator>
 #include <fstream>
 
-#define MAXDATASIZE 1000 // max number of bytes we can get at once
+#define MAXDATASIZE 100000 // max number of bytes we can get at once
 #define MY_PORT "80"
 #define BACK_LOG 10
 #pragma clang diagnostic push
@@ -25,9 +25,8 @@
 using namespace std;
 string* getResponse(string request);
 
-void clientHandler(struct sockaddr_storage* their_addr,int client_socket)
+void* clientHandler(struct sockaddr_storage* their_addr,int client_socket)
 {
-    pthread_detach(pthread_self()); /* terminates on return */
 //    char string[INET_ADDRSTRLEN];
 //    socklen_t size = sizeof string;
 //    inet_ntop
@@ -35,21 +34,24 @@ void clientHandler(struct sockaddr_storage* their_addr,int client_socket)
 //    printf("server: got connection from %s\n", string);
     cout<<"Connected to a client !"<<endl;
     /* request */
-    char buffer[MAXDATASIZE + 1];
+    char buffer[MAXDATASIZE+1];
     bzero(buffer, sizeof(buffer));
-    int bytes_read = static_cast<int>(recv(client_socket, buffer, sizeof(buffer), 0));
+    //cout<<"i am a debugger"<<endl;
+    int bytes_read = static_cast<int>(recv(client_socket, buffer,MAXDATASIZE+1, 0));
     if(bytes_read < 0)
     {
         perror("recv");
         exit(1);
     }
-
+    cout<<bytes_read<<endl;
     string* response = getResponse(string{buffer});
     auto message = (*response).c_str();
-    delete response;
-    if (send(client_socket,message,sizeof message, 0) == -1)
+    size_t len = response->length();
+    if (send(client_socket,message,len, 0) == -1)
         perror("send");
     close(client_socket);
+    delete response;
+    return nullptr;
 }
 
 void Server::start() {
@@ -109,6 +111,7 @@ void Server::start() {
             continue;
         }
         thread th(clientHandler,&their_addr,new_sockfd);
+        th.detach();
     }
 
 }
@@ -175,12 +178,12 @@ string* getResponse(string request)
     string response;
     auto * ptrToresponse = new string;
     vector<string>* requestTokens = parse_string(request);
-    string requestMethod = requestTokens->at(0);
+    string &requestMethod = requestTokens->at(0);
     if(requestMethod == "GET")
     {
-        string fileName = requestTokens->at(1);
+        string &fileName = requestTokens->at(1);
         string* fileString = readFileIfExists(fileName);
-        if(fileString.empty())
+        if(fileString->empty())
         {
             response = "HTTP/1.0 404 Not Found";
         }

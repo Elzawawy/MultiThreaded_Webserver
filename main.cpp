@@ -3,7 +3,7 @@
 #include "Server.h"
 #include "Client.h"
 int main() {
-    Client c;
-    c.start("POST ../Coursera_FinicalAid.txt hostname 80");
+    Server c;
+    c.start();
     return 0;
 }
