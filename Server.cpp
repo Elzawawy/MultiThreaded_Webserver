@@ -16,7 +16,7 @@
 #include <iterator>
 #include <fstream>
 
-#define MAXDATASIZE 100000 // max number of bytes we can get at once
+#define MAXDATASIZE 500 // max number of bytes we can get at once
 #define MY_PORT "80"
 #define BACK_LOG 10
 #pragma clang diagnostic push
@@ -35,16 +35,39 @@ void* clientHandler(struct sockaddr_storage* their_addr,int client_socket)
     cout<<"Connected to a client !"<<endl;
     /* request */
     char buffer[MAXDATASIZE+1];
+    fd_set readfds;
+    struct timeval tv;
+    string request;
     bzero(buffer, sizeof(buffer));
     //cout<<"i am a debugger"<<endl;
-    int bytes_read = static_cast<int>(recv(client_socket, buffer,MAXDATASIZE+1, 0));
-    if(bytes_read < 0)
+    int bytes_read;
+    //char buffer[MAXDATASIZE+1]; /* somewhere, might be static */
+    // clear the set ahead of time
+    FD_ZERO(&readfds);
+    // add our descriptors to the set
+    FD_SET(client_socket, &readfds);
+    // wait until either socket has data ready to be recv()d (timeout 10.5 secs)
+    tv.tv_sec = 0;
+    tv.tv_usec = 10000;
+    while(true)
     {
-        perror("recv");
-        exit(1);
+        int rv = select(client_socket+1, &readfds, nullptr, nullptr, &tv);
+        if(rv == -1) {perror("select"); break;}
+        else if(rv == 0) break;
+        if(FD_ISSET(client_socket,&readfds))
+            bytes_read = static_cast<int>(recv(client_socket, buffer,sizeof buffer, 0));
+        else
+            break;
+        if(bytes_read == -1)
+        {
+            perror("recv");
+            break;
+        }
+        cout<<bytes_read<<endl;
+        request.append(buffer);
     }
-    cout<<bytes_read<<endl;
-    string* response = getResponse(string{buffer});
+
+    string* response = getResponse(request);
     auto message = (*response).c_str();
     size_t len = response->length();
     if (send(client_socket,message,len, 0) == -1)
@@ -182,21 +205,21 @@ string* getResponse(string request)
     if(requestMethod == "GET")
     {
         string &fileName = requestTokens->at(1);
-        string* fileString = readFileIfExists(fileName);
+        string* fileString = readFileIfExists("ServerDirectory/"+fileName);
         if(fileString->empty())
         {
-            response = "HTTP/1.0 404 Not Found";
+            response = "HTTP/1.1 404 Not Found";
         }
         else
         {
-            response = "HTTP/1.0 200 OK\r\n\r\n";
+            response = "HTTP/1.1 200 OK\r\n\r\n";
             response.append(*fileString);
         }
     }
     else if(requestMethod == "POST")
     {
         writeToFile(*get_data(request),"ServerDirectory/post_file");
-        response = "HTTP/1.0 200 OK\r\n\r\n";
+        response = "HTTP/1.1 200 OK\r\n\r\n";
     }
 
     *ptrToresponse = response;
