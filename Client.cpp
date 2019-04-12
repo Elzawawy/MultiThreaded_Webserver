@@ -18,26 +18,31 @@
 
 #include <fstream>
 #include "Client.h"
-
+#define MAXDATASIZE 1000
 
 int Client::start(string input){
 
     vector<string>* tokens=parse_string(input);
+
     string *message=make_message(tokens->at(0),tokens->at(1),tokens->at(2));
 
-    int status;
+    char buff[MAXDATASIZE];
 
-    char* host= (char *) "www.google.com";
+    int status;
+//    char *host =new char[tokens->at(2).length()+1];
+//    strcpy(host,tokens->at(2));
+//
+    char *host= (char *) "www.google.com";
+    //char* host= (char *) "www.google.com";
+
     struct addrinfo hints,*p,*res;
 
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_INET;//ipv4
     hints.ai_socktype = SOCK_STREAM;//TCP
 
-
-
     //status = getaddrinfo(host, "3490", &hints, &servinfo);//get ready to connect
-    char ipstr[INET6_ADDRSTRLEN];
+
 
 
     if ((status = getaddrinfo(host, "80", &hints, &res)) != 0) {
@@ -45,8 +50,7 @@ int Client::start(string input){
         return 2;
     }
 
-
-
+    char ipstr[INET6_ADDRSTRLEN];
    //Printing the contents of the linked list
     printf("IP addresses for %s:\n\n", host);
 
@@ -78,17 +82,26 @@ int Client::start(string input){
         perror("client: connect");
     }
 
-    //Demo send code
-    char *msg = (char *) "Beej was here!";
+
+    //send request message
     int len, bytes_sent;
 
-    len = (int) strlen(msg);
-    bytes_sent = (int) send(socket_descriptor, msg, (size_t) len, 0);
+    len = (int) message->length();
+    bytes_sent = (int) send(socket_descriptor, message, (size_t) len, 0);
 
-    cout<<len<<" "<<bytes_sent;
+    // receive message
+
+    int numbytes;
+    if ((numbytes = (int) recv(socket_descriptor, buff, MAXDATASIZE - 1, 0)) == -1) {
+        perror("recv");
+        exit(1);
+    }
+    buff[numbytes] = '\0';
+
+    string s{buff};
+    cout<<buff;
 
     close(socket_descriptor);
-
     freeaddrinfo(res); // free the linked list
 
     return 0;
@@ -99,25 +112,31 @@ int Client::start(string input){
 string *Client::make_message(string request_type,string filename,string hostname) {
 
     string *message=new string();
-    message->append(request_type+" "+filename+" "+"HTTP/1.0"+"\n");
-    message->append("Host:"+hostname+"\n");
-    message->append("\n");
+    message->append(request_type+" "+filename+" "+"HTTP/1.0"+"\r\n");
+
+    message->append("\r\n");
     if(request_type=="POST"){
+
         streampos size;
         char * memblock;
 
-        ifstream post_file(filename,ios::binary);
+        ifstream post_file(filename,ios::binary|ios::in|ios::ate);
         if (post_file.is_open())
         {
+
             size = post_file.tellg();
             memblock = new char [size];
+
             post_file.seekg (0, ios::beg);
             post_file.read (memblock, size);
             post_file.close();
 
-            cout << "the entire file content is in memory";
+            message->append(memblock);
 
+            cout<<sizeof(memblock)<<" "<<size<<endl;
             delete[] memblock;
+
+
         }
     }
     return message;
@@ -133,8 +152,15 @@ vector<string>* Client:: parse_string(string input)
     copy(istream_iterator<string>(iss),
     istream_iterator<string>(),
     back_inserter(*results));
-    cout << results->at(1);
+
     return results;
+
+}
+
+void Client::get_data(string message) {
+    for (auto i=message.begin(); i !=message.end() ; ++i) {
+
+    }
 
 }
 

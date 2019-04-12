@@ -14,6 +14,7 @@ public:
 private:
     vector<string>* parse_string(string input);
     string* make_message(string request_type,string filename,string hostname);
+    void get_data(string message);
 
 };
 
