@@ -11,4 +11,4 @@ set(CMAKE_CXX_FLAGS -pthread)
 add_definitions(-D_GNU_SOURCE)
 
 
-add_executable(Socket_Programming main.cpp Server.cpp Server.h Client.cpp Client.h)
+add_executable(Socket_Programming Server.cpp Server.h Client.cpp Client.h server_main.cpp)

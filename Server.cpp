@@ -16,7 +16,7 @@
 #include <iterator>
 #include <fstream>
 
-#define MAXDATASIZE 500 // max number of bytes we can get at once
+#define MAXDATASIZE 256000 // max number of bytes we can get at once
 #define MY_PORT "80"
 #define BACK_LOG 10
 #pragma clang diagnostic push
@@ -29,33 +29,34 @@ void* clientHandler(struct sockaddr_storage* their_addr,int client_socket)
 {
 //    char string[INET_ADDRSTRLEN];
 //    socklen_t size = sizeof string;
-//    inet_ntop
 //    inet_ntop(their_addr->ss_family, &(((struct sockaddr_in*)((struct sockaddr *)&their_addr)))->sin_addr),string,size);
 //    printf("server: got connection from %s\n", string);
     cout<<"Connected to a client !"<<endl;
     /* request */
-    char buffer[MAXDATASIZE+1];
+    string buffer;
     fd_set readfds;
     struct timeval tv;
     string request;
-    bzero(buffer, sizeof(buffer));
-    //cout<<"i am a debugger"<<endl;
+    buffer.clear();
+    buffer.resize(MAXDATASIZE);
     int bytes_read;
-    //char buffer[MAXDATASIZE+1]; /* somewhere, might be static */
     // clear the set ahead of time
     FD_ZERO(&readfds);
     // add our descriptors to the set
     FD_SET(client_socket, &readfds);
     // wait until either socket has data ready to be recv()d (timeout 10.5 secs)
-    tv.tv_sec = 0;
-    tv.tv_usec = 10000;
+    tv.tv_sec = 1;
+    tv.tv_usec = 0;
     while(true)
     {
         int rv = select(client_socket+1, &readfds, nullptr, nullptr, &tv);
+        cout<<"I am unblocked bitch !"<<endl;
+        cout<<rv<<endl;
         if(rv == -1) {perror("select"); break;}
         else if(rv == 0) break;
-        if(FD_ISSET(client_socket,&readfds))
-            bytes_read = static_cast<int>(recv(client_socket, buffer,sizeof buffer, 0));
+        if(FD_ISSET(client_socket,&readfds)) {
+            bytes_read = static_cast<int>(recv(client_socket, &buffer[0],buffer.size(), 0));
+        }
         else
             break;
         if(bytes_read == -1)
@@ -63,15 +64,19 @@ void* clientHandler(struct sockaddr_storage* their_addr,int client_socket)
             perror("recv");
             break;
         }
-        cout<<bytes_read<<endl;
-        request.append(buffer);
+        cout<<"rec"<<bytes_read<<endl;
+        if(bytes_read == 0) break;
+        request.append(buffer.cbegin(),buffer.cbegin()+bytes_read);
+        cout<<"Buffer"<<buffer.size()<<endl;
+        cout<<"sizeeeee "<<request.size()<<endl;
     }
-
     string* response = getResponse(request);
     auto message = (*response).c_str();
     size_t len = response->length();
-    if (send(client_socket,message,len, 0) == -1)
+    ssize_t num_bytes;
+    if ((num_bytes =send(client_socket,message,len, 0)) == -1)
         perror("send");
+    cout<<"send"<<num_bytes<<endl;
     close(client_socket);
     delete response;
     return nullptr;
@@ -174,7 +179,7 @@ string* readFileIfExists(string fileName)
 
 void writeToFile(const string &body, const string &fileName)
 {
-    std::ofstream file(fileName,ios::out|ios::binary);
+    std::ofstream file(fileName,ios::out|ios::binary| ios::trunc);
     file << body;
 }
 string* get_data(string message) {
@@ -201,25 +206,26 @@ string* getResponse(string request)
     string response;
     auto * ptrToresponse = new string;
     vector<string>* requestTokens = parse_string(request);
+    if(requestTokens->empty()) return new string{"Empty request"};
     string &requestMethod = requestTokens->at(0);
     if(requestMethod == "GET")
     {
         string &fileName = requestTokens->at(1);
-        string* fileString = readFileIfExists("ServerDirectory/"+fileName);
+        string* fileString = readFileIfExists("./ServerDirectory/"+fileName);
         if(fileString->empty())
         {
-            response = "HTTP/1.1 404 Not Found";
+            response = "HTTP/1.0 404 Not Found";
         }
         else
         {
-            response = "HTTP/1.1 200 OK\r\n\r\n";
+            response = "HTTP/1.0 200 OK\r\n\r\n";
             response.append(*fileString);
         }
     }
     else if(requestMethod == "POST")
     {
         writeToFile(*get_data(request),"ServerDirectory/post_file");
-        response = "HTTP/1.1 200 OK\r\n\r\n";
+        response = "HTTP/1.0 200 OK\r\n\r\n";
     }
 
     *ptrToresponse = response;
