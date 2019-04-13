@@ -7,9 +7,11 @@
 
 int main(){
     Client c;
-    string command;
-    cout<<"Let's do one more ! Command goes below"<<endl;
-    getline (cin, command);
-    c.start(command);
+//    string command;
+//    cout<<"Let's do one more ! Command goes below"<<endl;
+//    getline (cin, command);
+//    c.start(command);
+    c.start("GET post_file 192.168.43.153 80");
+
     return 0;
 }

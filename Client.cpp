@@ -14,7 +14,7 @@
 
 #include <fstream>
 #include "Client.h"
-#define MAXDATASIZE 100000
+#define MAXDATASIZE 256000
 #define STD_INPUT_SIZE 4
 int Client::start(string input){
 
@@ -22,23 +22,18 @@ int Client::start(string input){
 
     string *message=make_message(tokens->at(0),tokens->at(1),tokens->at(2));
     string message_type=(tokens->at(0));
-    char buff[MAXDATASIZE];
+
 
     int status;
     const char *host =(tokens->at(2)).c_str();
     string port_number=(tokens->size())== STD_INPUT_SIZE?(tokens->at(3)):"80";
 
-//    char *host= (char *) "www.google.com";
 
-
-    struct addrinfo hints,*p,*res;
+    struct addrinfo hints,*res;
 
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_INET;//ipv4
     hints.ai_socktype = SOCK_STREAM;//TCP
-
-    //status = getaddrinfo(host, "3490", &hints, &servinfo);//get ready to connect
-
 
 
     if ((status = getaddrinfo(host, "80", &hints, &res)) != 0) {
@@ -46,29 +41,7 @@ int Client::start(string input){
         return 2;
     }
 
-    char ipstr[INET6_ADDRSTRLEN];
-   //Printing the contents of the linked list
-    printf("IP addresses for %s:\n\n", host);
-
-
-    for(p = res;p != NULL; p = p->ai_next) {
-
-        void *addr = nullptr;
-        char *ipver;
-        if (p->ai_family == AF_INET) { // IPv4
-            struct sockaddr_in *ipv4 = (struct sockaddr_in *)p->ai_addr;
-            addr = &(ipv4->sin_addr);
-            ipver = (char *) "IPv4";
-        } else { // IPv6
-            struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *)p->ai_addr;
-            addr = &(ipv6->sin6_addr);
-            ipver = (char *) "IPv6";
-        }
-
-        inet_ntop(p->ai_family, addr, ipstr, sizeof ipstr);
-        printf(" %s: %s\n", ipver, ipstr);
-
-    }
+    print_addrinfo_result_linkedlist(res,host);
 
     //getting socket descriptor for upcoming system calls
     int socket_descriptor = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
@@ -84,26 +57,67 @@ int Client::start(string input){
     int len, bytes_sent;
 
     len = (int) message->length();
+    cout<<"message length"<<len<<endl;
     bytes_sent = (int) send(socket_descriptor, message->c_str(), (size_t) len, 0);
 
-    cout<<bytes_sent<<endl;
-    // receive message
-    int numbytes;
-    if ((numbytes = (int) recv(socket_descriptor, buff, MAXDATASIZE - 1, 0)) == -1) {
-        perror("recv");
-        exit(1);
+    cout<<"sent"<<bytes_sent<<endl;
+//
+//    //recieve message with select
+    string buffer;
+    fd_set readfds;
+    struct timeval tv;
+    string request;
+    buffer.clear();
+    buffer.resize(MAXDATASIZE);
+    int bytes_read;
+    // clear the set ahead of time
+    FD_ZERO(&readfds);
+    // add our descriptors to the set
+    FD_SET(socket_descriptor, &readfds);
+    // wait until either socket has data ready to be recv()d (timeout 10.5 secs)
+    tv.tv_sec = 2;
+    tv.tv_usec = 0;
+    while(true)
+    {
+        int rv = select(socket_descriptor+1, &readfds, nullptr, nullptr, &tv);
+        cout<<"I am unblocked bitch !"<<endl;
+        cout<<rv<<endl;
+        if(rv == -1) {perror("select"); break;}
+        else if(rv == 0) break;
+        if(FD_ISSET(socket_descriptor,&readfds)) {
+            bytes_read = static_cast<int>(recv(socket_descriptor, &buffer[0],buffer.size(), 0));
+        }
+        else
+            break;
+        if(bytes_read == -1)
+        {
+            perror("recv");
+            break;
+        }
+        cout<<"rec"<<bytes_read<<endl;
+        if(bytes_read == 0) break;
+        request.append(buffer.cbegin(),buffer.cbegin()+bytes_read);
+        cout<<"Buffer"<<buffer.size()<<endl;
+        cout<<"sizeeeee "<<request.size()<<endl;
     }
 
-    cout<<numbytes<<endl;
-    buff[numbytes] = '\0';
+//    // receive message
+//    int numbytes;
+//    if ((numbytes = (int) recv(socket_descriptor, buff, MAXDATASIZE - 1, 0)) == -1) {
+//        perror("recv");
+//        exit(1);
+//    }
+//
+//    cout<<numbytes<<endl;
+//    buff[numbytes] = '\0';
 
-    string s{buff};
-    cout<<buff<<endl;
+
+//    cout<<"buffer content:"<<request<<endl;
     auto message_body = new string;
 
-   if(get_status_code(string{buff})==200) {
+   if(get_status_code(request)==200) {
        if (message_type == "GET")
-           message_body = (get_data(string{buff}));
+           message_body = (get_data(request));
        else
            *message_body = string{"message posted"};
        write_to_file(*(message_body),"get_file");
@@ -127,23 +141,28 @@ string *Client::make_message(string request_type,string filename,string hostname
     if(request_type=="POST"){
 
         streampos size;
-        char * memblock;
-
+//        char * memblock;
+        string memblock;
         ifstream post_file(filename,ios::binary|ios::in|ios::ate);
         if (post_file.is_open())
         {
 
             size = post_file.tellg();
-            memblock = new char [size];
 
+//            memblock = new char [size];
+            memblock.resize((unsigned long) size);
             post_file.seekg (0, ios::beg);
-            post_file.read (memblock, size);
+            post_file.read (&memblock[0], memblock.size());
+
+            cout<<"eof "<<post_file.eof()<<endl;
+            cout<<"filesize "<<size<<endl;
+
             post_file.close();
 
             message->append(memblock);
 
-
-            delete[] memblock;
+            cout<<message->size()<<endl;
+//            delete[] memblock;
 
 
         }
@@ -185,14 +204,43 @@ string* Client::get_data(string message) {
 }
 
 void Client::write_to_file(const string &message_body,const string &filename) {
-    ofstream output_file(filename,ios::out|ios::binary);
+    ofstream output_file(filename,ios::out|ios::binary|ios::trunc);
     output_file<<message_body;
 }
 
 int Client::get_status_code(string response) {
     if(response.size()<2)
         return 0;
+
     return stoi((parse_string(response)->at(1)));
+}
+
+void Client::print_addrinfo_result_linkedlist(addrinfo* result,string host) {
+    struct addrinfo *p=result;
+//Printing the contents of the linked list
+    char ipstr[INET6_ADDRSTRLEN];
+
+    printf("IP addresses for %s:\n\n", host);
+
+
+    for(;p != NULL; p = p->ai_next) {
+
+        void *addr = nullptr;
+        char *ipver;
+        if (p->ai_family == AF_INET) { // IPv4
+            struct sockaddr_in *ipv4 = (struct sockaddr_in *)p->ai_addr;
+            addr = &(ipv4->sin_addr);
+            ipver = (char *) "IPv4";
+        } else { // IPv6
+            struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *)p->ai_addr;
+            addr = &(ipv6->sin6_addr);
+            ipver = (char *) "IPv6";
+        }
+
+        inet_ntop(p->ai_family, addr, ipstr, sizeof ipstr);
+        printf(" %s: %s\n", ipver, ipstr);
+
+    }
 }
 
 

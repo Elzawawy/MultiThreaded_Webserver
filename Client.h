@@ -17,6 +17,7 @@ private:
     string* get_data(string message);
     void write_to_file(const string &message_body,const string &filename);
     int get_status_code(string response);
+    void print_addrinfo_result_linkedlist(addrinfo* result,string host);
 
 };
 
