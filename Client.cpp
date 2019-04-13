@@ -30,7 +30,8 @@ int Client::start(string input){
     hints.ai_family = AF_INET;//ipv4
     hints.ai_socktype = SOCK_STREAM;//TCP
 
-    if ((status = getaddrinfo(host, "80", &hints, &res)) != 0) {
+    //get the required information using the getaddrinfo function that returns a linked list with the wanted data
+    if ((status = getaddrinfo(host, port_number.c_str(), &hints, &res)) != 0) {
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(status));
         return 2;
     }
@@ -49,11 +50,11 @@ int Client::start(string input){
     int len, bytes_sent;
 
     len = (int) message->length();
-    cout<<"message length"<<len<<endl;
+    cout<<"message length "<<len<<endl;
     bytes_sent = (int) send(socket_descriptor, message->c_str(), (size_t) len, 0);
 
-    cout<<"sent"<<bytes_sent<<endl;
-//
+    cout<<"sent "<<bytes_sent<<endl;
+
     string* response=receive_message(socket_descriptor);
 
 
@@ -61,14 +62,14 @@ int Client::start(string input){
 
    if(get_status_code(*response)==200) {
        if (message_type == "GET")
-           message_body = (get_data(*response));
+           message_body = (get_data(*response));//extract the message body if it's a GET request
        else
            *message_body = string{"message posted"};
        write_to_file(*(message_body),"get_file");
    } else cout<<"request error"<<endl;
 
-
-    close(socket_descriptor);
+    cout<<*response<<endl;
+    close(socket_descriptor);//close the socket
     freeaddrinfo(res); // free the linked list
     delete(response);
     return 0;
@@ -83,32 +84,17 @@ string *Client::make_message(string request_type,string filename,string hostname
 
     message->append("\r\n");
     if(request_type=="POST"){
-
         streampos size;
-//        char * memblock;
         string memblock;
-        ifstream post_file(filename,ios::binary|ios::in|ios::ate);
+        ifstream post_file(filename,ios::binary|ios::in|ios::ate);//open file as a binary file to handle text and image files
         if (post_file.is_open())
         {
-
-            size = post_file.tellg();
-
-//            memblock = new char [size];
+            size = post_file.tellg();//get the size of the file
             memblock.resize((unsigned long) size);
             post_file.seekg (0, ios::beg);
             post_file.read (&memblock[0], memblock.size());
-
-            cout<<"eof "<<post_file.eof()<<endl;
-            cout<<"filesize "<<size<<endl;
-
             post_file.close();
-
             message->append(memblock);
-
-            cout<<message->size()<<endl;
-//            delete[] memblock;
-
-
         }
     }
     return message;
@@ -116,14 +102,11 @@ string *Client::make_message(string request_type,string filename,string hostname
 
 vector<string>* Client:: parse_string(string input)
 {
-
-
     istringstream iss(input);
     vector<string> *results = new vector<string>;
-    copy(istream_iterator<string>(iss),
+    copy(istream_iterator<string>(iss),//tokenize the input string with the space as a delimiter and add the result in a vector
     istream_iterator<string>(),
     back_inserter(*results));
-
     return results;
 
 }
@@ -155,19 +138,24 @@ void Client::write_to_file(const string &message_body,const string &filename) {
 int Client::get_status_code(string response) {
     if(response.size()<2)
         return 0;
+    string code=(parse_string(response)->at(1));
+    int code_numeric;
+    try {
+        code_numeric=stoi(code);
+    }catch(exception& e){
+        return 0;
+    }
+    return code_numeric;
 
-    return stoi((parse_string(response)->at(1)));
+
 }
 
 void Client::print_addrinfo_result_linkedlist(addrinfo* result,string host) {
     struct addrinfo *p=result;
-//Printing the contents of the linked list
+
+    //Printing the contents of the linked list
     char ipstr[INET6_ADDRSTRLEN];
-
     cout<<"IP addresses for "<<host<<"\n";
-
-
-
     for(;p != NULL; p = p->ai_next) {
 
         void *addr = nullptr;
@@ -183,7 +171,7 @@ void Client::print_addrinfo_result_linkedlist(addrinfo* result,string host) {
         }
 
         inet_ntop(p->ai_family, addr, ipstr, sizeof ipstr);
-        printf(" %s: %s\n", ipver, ipstr);
+        printf("%s: %s\n", ipver, ipstr);
 
     }
 }
@@ -207,8 +195,6 @@ string* Client::receive_message(int socket_descriptor) {
     while(true)
     {
         int rv = select(socket_descriptor+1, &readfds, nullptr, nullptr, &tv);
-        cout<<"I am unblocked bitch !"<<endl;
-        cout<<rv<<endl;
         if(rv == -1) {perror("select"); break;}
         else if(rv == 0) break;
         if(FD_ISSET(socket_descriptor,&readfds)) {
@@ -221,11 +207,8 @@ string* Client::receive_message(int socket_descriptor) {
             perror("recv");
             break;
         }
-        cout<<"rec"<<bytes_read<<endl;
         if(bytes_read == 0) break;
         response->append(buffer.cbegin(),buffer.cbegin()+bytes_read);
-        cout<<"Buffer"<<buffer.size()<<endl;
-        cout<<"sizeeeee "<<response->size()<<endl;
     }
     return response;
 }
