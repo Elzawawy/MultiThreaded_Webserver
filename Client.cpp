@@ -18,40 +18,32 @@
 #define STD_INPUT_SIZE 4
 int Client::start(string input){
 
-    vector<string>* tokens=parse_string(input);
-
-    string *message=make_message(tokens->at(0),tokens->at(1),tokens->at(2));
-    string message_type=(tokens->at(0));
-
-
+    const vector<string>* tokens=parse_string(input);//parse the input string and tokenize it
+    const string *message=make_message(tokens->at(0),tokens->at(1),tokens->at(2));//make a message string by appending the header to the body if POST
+    const string message_type=(tokens->at(0));
     int status;
     const char *host =(tokens->at(2)).c_str();
-    string port_number=(tokens->size())== STD_INPUT_SIZE?(tokens->at(3)):"80";
-
-
+    const string port_number=(tokens->size())== STD_INPUT_SIZE?(tokens->at(3)):"80";
     struct addrinfo hints,*res;
 
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_INET;//ipv4
     hints.ai_socktype = SOCK_STREAM;//TCP
 
-
     if ((status = getaddrinfo(host, "80", &hints, &res)) != 0) {
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(status));
         return 2;
     }
 
-    print_addrinfo_result_linkedlist(res,host);
+    print_addrinfo_result_linkedlist(res,host);//print the contents of the res linked list
 
     //getting socket descriptor for upcoming system calls
     int socket_descriptor = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
-
-
+    //trying to connect to the server
     if (connect(socket_descriptor, res->ai_addr, res->ai_addrlen) == -1) {
         close(socket_descriptor);
         perror("client: connect");
     }
-
 
     //send request message
     int len, bytes_sent;
@@ -62,62 +54,14 @@ int Client::start(string input){
 
     cout<<"sent"<<bytes_sent<<endl;
 //
-//    //recieve message with select
-    string buffer;
-    fd_set readfds;
-    struct timeval tv;
-    string request;
-    buffer.clear();
-    buffer.resize(MAXDATASIZE);
-    int bytes_read;
-    // clear the set ahead of time
-    FD_ZERO(&readfds);
-    // add our descriptors to the set
-    FD_SET(socket_descriptor, &readfds);
-    // wait until either socket has data ready to be recv()d (timeout 10.5 secs)
-    tv.tv_sec = 2;
-    tv.tv_usec = 0;
-    while(true)
-    {
-        int rv = select(socket_descriptor+1, &readfds, nullptr, nullptr, &tv);
-        cout<<"I am unblocked bitch !"<<endl;
-        cout<<rv<<endl;
-        if(rv == -1) {perror("select"); break;}
-        else if(rv == 0) break;
-        if(FD_ISSET(socket_descriptor,&readfds)) {
-            bytes_read = static_cast<int>(recv(socket_descriptor, &buffer[0],buffer.size(), 0));
-        }
-        else
-            break;
-        if(bytes_read == -1)
-        {
-            perror("recv");
-            break;
-        }
-        cout<<"rec"<<bytes_read<<endl;
-        if(bytes_read == 0) break;
-        request.append(buffer.cbegin(),buffer.cbegin()+bytes_read);
-        cout<<"Buffer"<<buffer.size()<<endl;
-        cout<<"sizeeeee "<<request.size()<<endl;
-    }
-
-//    // receive message
-//    int numbytes;
-//    if ((numbytes = (int) recv(socket_descriptor, buff, MAXDATASIZE - 1, 0)) == -1) {
-//        perror("recv");
-//        exit(1);
-//    }
-//
-//    cout<<numbytes<<endl;
-//    buff[numbytes] = '\0';
+    string* response=receive_message(socket_descriptor);
 
 
-//    cout<<"buffer content:"<<request<<endl;
     auto message_body = new string;
 
-   if(get_status_code(request)==200) {
+   if(get_status_code(*response)==200) {
        if (message_type == "GET")
-           message_body = (get_data(request));
+           message_body = (get_data(*response));
        else
            *message_body = string{"message posted"};
        write_to_file(*(message_body),"get_file");
@@ -126,7 +70,7 @@ int Client::start(string input){
 
     close(socket_descriptor);
     freeaddrinfo(res); // free the linked list
-
+    delete(response);
     return 0;
 
 }
@@ -220,7 +164,8 @@ void Client::print_addrinfo_result_linkedlist(addrinfo* result,string host) {
 //Printing the contents of the linked list
     char ipstr[INET6_ADDRSTRLEN];
 
-    printf("IP addresses for %s:\n\n", host);
+    cout<<"IP addresses for "<<host<<"\n";
+
 
 
     for(;p != NULL; p = p->ai_next) {
@@ -241,6 +186,48 @@ void Client::print_addrinfo_result_linkedlist(addrinfo* result,string host) {
         printf(" %s: %s\n", ipver, ipstr);
 
     }
+}
+
+string* Client::receive_message(int socket_descriptor) {
+    //recieve message with select
+    string buffer;
+    fd_set readfds;
+    struct timeval tv;
+    string* response=new string;
+    buffer.clear();
+    buffer.resize(MAXDATASIZE);
+    int bytes_read;
+    // clear the set ahead of time
+    FD_ZERO(&readfds);
+    // add our descriptors to the set
+    FD_SET(socket_descriptor, &readfds);
+    // wait until either socket has data ready to be recv()d (timeout 10.5 secs)
+    tv.tv_sec = 2;
+    tv.tv_usec = 0;
+    while(true)
+    {
+        int rv = select(socket_descriptor+1, &readfds, nullptr, nullptr, &tv);
+        cout<<"I am unblocked bitch !"<<endl;
+        cout<<rv<<endl;
+        if(rv == -1) {perror("select"); break;}
+        else if(rv == 0) break;
+        if(FD_ISSET(socket_descriptor,&readfds)) {
+            bytes_read = static_cast<int>(recv(socket_descriptor, &buffer[0],buffer.size(), 0));
+        }
+        else
+            break;
+        if(bytes_read == -1)
+        {
+            perror("recv");
+            break;
+        }
+        cout<<"rec"<<bytes_read<<endl;
+        if(bytes_read == 0) break;
+        response->append(buffer.cbegin(),buffer.cbegin()+bytes_read);
+        cout<<"Buffer"<<buffer.size()<<endl;
+        cout<<"sizeeeee "<<response->size()<<endl;
+    }
+    return response;
 }
 
 
