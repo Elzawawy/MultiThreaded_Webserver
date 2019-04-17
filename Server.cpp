@@ -126,7 +126,6 @@ std::string Server::receive_request(int client_socket) {
     tv.tv_usec = 0;
     while (true) {
         int rv = select(client_socket + 1, &readfds, nullptr, nullptr, &tv);
-        cout << rv << endl;
         if (rv == -1) {
             perror("select");
             break;
@@ -143,6 +142,7 @@ std::string Server::receive_request(int client_socket) {
         if (bytes_read == 0) break;
         request.append(buffer.cbegin(), buffer.cbegin() + bytes_read);
     }
+    cout<<"Bytes received: "<<request.size()<<endl;
     return request;
 
 }
@@ -226,6 +226,8 @@ std::string *Server::get_data(std::string message) {
 void Server::send_response(int client_socket, std::string *response) {
     auto message = (*response).c_str();
     size_t len = response->length();
-    if ((send(client_socket, message, len, 0)) == -1)
+    ssize_t num_bytes;
+    if ((num_bytes = send(client_socket, message, len, 0)) == -1)
         perror("send");
+    cout<<"Bytes Sent: "<<num_bytes<<endl;
 }
