@@ -38,6 +38,8 @@ private:
 
     std::string *get_data(std::string message);
 
+    bool is_entity_body_reached(string& partial_response,int & body_starting_position);
+
 };
 
 

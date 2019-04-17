@@ -231,3 +231,20 @@ void Server::send_response(int client_socket, std::string *response) {
         perror("send");
     cout<<"Bytes Sent: "<<num_bytes<<endl;
 }
+
+
+bool Server::is_entity_body_reached(string& partial_response,int &body_starting_position) {
+    static int stopping_delimiters_count = 0;
+    int j = 0;
+    for (auto i = partial_response.begin(); i != partial_response.end(); ++i, ++j) {
+        if (*i == '\r' || *i == '\n') {
+            stopping_delimiters_count++;
+            if(stopping_delimiters_count==4){
+                body_starting_position=j+1;
+                return true;
+            }
+        }else
+            stopping_delimiters_count=0;
+    }
+    return false;
+}
