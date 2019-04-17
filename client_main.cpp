@@ -11,5 +11,7 @@ int main(){
     cout<<"Let's do one more ! Command goes below"<<endl;
     getline (cin, command);
     c.start(command);
+//    c.start("POST ../output2.txt 192.168.43.153 80");
+
     return 0;
 }
