@@ -13,7 +13,7 @@ public:
     int start(string input);
 private:
     vector<string>* parse_string(string input);
-    string* make_message(string request_type,string filename,string hostname);
+    string* make_message(string request_type,string filename,string hostname,bool last_request_flag);
     string* get_data(string message);
     void write_to_file(const string &message_body,const string &filename);
     int get_status_code(string response);

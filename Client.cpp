@@ -15,15 +15,16 @@
 #include <fstream>
 #include "Client.h"
 #define MAXDATASIZE 256000
-#define STD_INPUT_SIZE 4
+#define STD_INPUT_SIZE 5
 int Client::start(string input){
 
     const vector<string>* tokens=parse_string(input);//parse the input string and tokenize it
-    const string *message=make_message(tokens->at(0),tokens->at(1),tokens->at(2));//make a message string by appending the header to the body if POST
+    bool request_end_flag= (tokens->size()) == STD_INPUT_SIZE;
+    const string *message=make_message(tokens->at(0),tokens->at(1),tokens->at(2),request_end_flag);//make a message string by appending the header to the body if POST
     const string message_type=(tokens->at(0));
     int status;
     const char *host =(tokens->at(2)).c_str();
-    const string port_number=(tokens->size())== STD_INPUT_SIZE?(tokens->at(3)):"80";
+    const string port_number=(tokens->size())== STD_INPUT_SIZE-1?(tokens->at(3)):"80";
     struct addrinfo hints,*res;
 
     memset(&hints, 0, sizeof hints);
@@ -77,11 +78,11 @@ int Client::start(string input){
 }
 
 
-string *Client::make_message(string request_type,string filename,string hostname) {
+string *Client::make_message(string request_type,string filename,string hostname,bool last_request_flag) {
 
     string *message=new string();
     message->append(request_type+" "+filename+" "+"HTTP/1.0"+"\r\n");
-
+    message->append("Host: "+hostname);
     message->append("\r\n");
     if(request_type=="POST"){
         streampos size;
@@ -94,6 +95,11 @@ string *Client::make_message(string request_type,string filename,string hostname
             post_file.seekg (0, ios::beg);
             post_file.read (&memblock[0], memblock.size());
             post_file.close();
+            //adding the content-length header
+            message->append("Content-Length: "+size+'\r'+'\n');
+
+            if(last_request_flag)
+                message->append("Connection: close"+'\r'+'\n');
             message->append(memblock);
         }
     }
